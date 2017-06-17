@@ -1,0 +1,172 @@
+library(dplyr)
+library(readr)
+setwd("E:/_Personal/Developing Data Products/Assignment3/DDP_Assignment3/")
+scrubbed <- read_csv("data/scrubbed.csv",
+col_types = cols(`date posted` = col_datetime(format = "%m/%d/%Y"),
+datetime = col_datetime(format = "%m/%d/%Y %H:%M"),
+latitude = col_character(),
+longitude = col_character()
+))
+hdr <- c("datetime", "city", "state", "country", "shape", "seconds", "duration", "comments", "posting", "lat", "long")
+names(scrubbed) <- hdr
+scrubbed$lat <- as.double(scrubbed$lat) #will fix the one NA later on
+scrubbed$long <- as.double(scrubbed$long)
+library(car)
+scrubbed$shape <- recode(scrubbed$shape, "'changing'='changed'")
+scrubbed$shape <- recode(scrubbed$shape, "'delta'='triangle'")
+scrubbed$shape <- recode(scrubbed$shape, "'round'='other'")
+scrubbed$shape <- recode(scrubbed$shape, "'hexagon'='other'")
+scrubbed$shape <- recode(scrubbed$shape, "'crescent'='other'")
+scrubbed$shape <- recode(scrubbed$shape, "'dome'='other'")
+scrubbed$shape <- recode(scrubbed$shape, "'flare'='flash'")
+scrubbed$shape <- recode(scrubbed$shape, "'pyramid'='triangle'")
+scrubbed$state <- toupper(scrubbed$state)
+scrubbed$country <- toupper(scrubbed$country)
+us_state_abbrev <- c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC",
+"FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
+"MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
+"OR", "MD", "MA", "MI", "MN", "MS", "MO", "PA", "RI", "SC", "SD",
+"TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY")
+library(stringr) #hadley
+scrubbed$city <- tools::toTitleCase(scrubbed$city) #takes a bit of time to run
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(qdapRegex)
+scrubbed$other_country <- rm_round(scrubbed$city, extract = TRUE)
+scrubbed$city <- rm_round(scrubbed$city, extract = FALSE) #overwrites the city
+scrubbed <- scrubbed %>%
+mutate(state = ifelse(is.na(state),"Unknown",state))
+scrubbed[c(43783), ]$country <- "US"
+scrubbed[c(43783), ]$lat <- 34.5199
+scrubbed[c(43783), ]$long <- 105.9378
+scrubbed$id <- as.numeric( row.names(scrubbed) )
+scrubbed$year <- as.numeric( format(scrubbed$datetime, '%Y') )
+scrubbed$month <- as.character( format(scrubbed$datetime, '%b') ) #in the app, convert to as.factor
+scrubbed$month_num <- as.numeric( format(scrubbed$datetime, '%m') )
+scrubbed$weekday <- as.character( format(scrubbed$datetime, '%a') ) #in the app, convert to as.factor
+scrubbed$day <- as.numeric( format(scrubbed$datetime, '%d') )
+scrubbed$weekend <- as.character( ifelse(scrubbed$weekday %in% c("Fri", "Sat", "Sun"), "Weekend", "Week") ) #in the app, convert to as.factor
+scrubbed$postyear <- as.numeric( format(scrubbed$datetime, '%Y') )
+scrubbed$postmonth <- as.character( format(scrubbed$datetime, '%b') ) #in the app, convert to as.factor
+scrubbed$postmonth_num <- as.numeric( format(scrubbed$datetime, '%m') )
+scrubbed$postweekday <- as.character( format(scrubbed$datetime, '%a') ) #in the app, convert to as.factor
+scrubbed$postday <- as.numeric( format(scrubbed$datetime, '%d') )
+scrubbed$postweekend <- as.character( ifelse(scrubbed$postweekday %in% c("Fri", "Sat", "Sun"), "Weekend", "Week") ) #in the app, convert to as.factor
+scrubbed$comments <- gsub("&#[a-z0-9][a-z0-9]", '', scrubbed$comments)
+scrubbed$comments <- gsub("&quot;", '', scrubbed$comments)
+scrubbed$shape <- as.character(scrubbed$shape) #in the app, convert to as.factor
+scrubbed$state <- as.character(scrubbed$state) #in the app, convert to as.factor
+scrubbed$country <- as.character(scrubbed$country) #in the app, convert to as.factor
+scrubbed$minutes <- ifelse(scrubbed$seconds <= 73800, round(scrubbed$seconds/60, digits=1), NA )
+scrubbed$duration_descr <- NA
+scrubbed$duration_descr[scrubbed$seconds <= 5] <- "Less than 5 seconds"
+scrubbed$duration_descr[scrubbed$seconds > 5 & scrubbed$seconds <=30] <- "5 seconds to less than 30 seconds"
+scrubbed$duration_descr[scrubbed$seconds > 30 & scrubbed$seconds <=60] <- "30 seconds to less than 1 minute"
+scrubbed$duration_descr[scrubbed$seconds > 60 & scrubbed$seconds <=300] <- "1 minute to less than 5 minutes"
+scrubbed$duration_descr[scrubbed$seconds > 300 & scrubbed$seconds <=600] <- "5 minute to less than 10 minutes"
+scrubbed$duration_descr[scrubbed$seconds > 600 & scrubbed$seconds <=1800] <- "10 minutes to less than 30 minutes"
+scrubbed$duration_descr[scrubbed$seconds > 1000 & scrubbed$seconds <=3600] <- "30 minutes to less than 1 hour"
+scrubbed$duration_descr[scrubbed$seconds > 3600 & scrubbed$seconds <=86400] <- "1 hour to less than 24 hours"
+scrubbed$duration_descr[scrubbed$seconds > 86400] <- "Greater than 24 hours"
+scrubbed$duration_descr[is.na(scrubbed$seconds)] <- "Unknown"
+View(scrubbed %>% filter(duration_descr == "Unknown"))
+View(scrubbed)
+saveRDS(scrubbed, "data/scrubbed.rdata")
+readRDS("data/scrubbed.rdata")
+shiny::runApp()
+runApp()
+runApp('app')
+runApp('app')
+runApp('app')
+df1 <- scrubbed %>% filter(year %in% c(2014,2015) )
+View(df1)
+runApp('app')
+shiny::runApp('app')
+df1 <- scrubbed %>% select(duration_descr == "5 seconds to less than 30 seconds", country = "AU")
+df1 <- scrubbed %>% select(duration_descr == "5 seconds to less than 30 seconds", country == "AU")
+df1 <- scrubbed %>% filter(duration_descr == "5 seconds to less than 30 seconds", country == "AU")
+View(df1)
+runApp('app')
+View(scrubbed)
+runApp('app')
+runApp('app')
+runApp('app')
+df1 <- scrubbed %>% filter(duration_descr == "30 seconds to less than 59 seconds", country == "CA", shape="cigar")
+df1 <- scrubbed %>% filter(duration_descr == "30 seconds to less than 59 seconds", country == "CA", shape=="cigar")
+runApp('app')
+runApp('app')
+runApp('app')
+df1 <- scrubbed %>% filter(duration_descr == "30 seconds to less than 59 seconds", country == "CA", shape=="cigar")
+df2 <- df1[complete.cases(df1) , ]
+nrow(df2)
+runApp('app')
+runApp('app')
+shiny::runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+min(scrubbed$year)
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+View(scrubbed)
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+View(scrubbed)
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+runApp('app')
+shiny::runApp('app')
+runApp('app')
+shiny::runApp('app')
+runApp('app')
+runApp('app')
